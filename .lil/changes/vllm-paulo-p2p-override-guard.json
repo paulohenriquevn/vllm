@@ -1,0 +1,13 @@
+{
+  "schema": "local-inference-release-change/v1",
+  "id": "vllm-paulo-p2p-override-guard",
+  "category": "fix",
+  "summary": "The B12X PCIe all-reduce warns when the NVIDIA driver runs without the ForceP2P override, and can refuse to start without it",
+  "models": ["all"],
+  "compatibility": "No user action required. Set VLLM_PCIE_REQUIRE_P2P_OVERRIDE=1 to keep the B12X PCIe all-reduce disabled (NCCL is used) while the override is missing.",
+  "details": [
+    "On GPUs behind CPU root ports the driver stages GPU-to-GPU kernel accesses through system memory unless NVreg_RegistryDwords carries ForceP2P. The one-shot all-reduce is then much slower than NCCL at decode sizes, and nothing reported it.",
+    "The state is read from /proc/driver/nvidia/params. When it cannot be read, nothing changes."
+  ],
+  "pull_requests": []
+}

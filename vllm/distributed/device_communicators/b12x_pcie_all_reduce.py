@@ -16,6 +16,11 @@ import torch.distributed as dist
 from torch.distributed import ProcessGroup
 
 import vllm.envs as envs
+from vllm.distributed.device_communicators.nvidia_p2p import (
+    P2P_OVERRIDE_REMEDY,
+    p2p_override_state,
+    require_p2p_override,
+)
 from vllm.distributed.parallel_state import in_the_same_node_as
 from vllm.distributed.utils import is_weak_contiguous
 from vllm.logger import init_logger
@@ -273,6 +278,24 @@ class B12xPcieAllReduce:
         if not is_supported(device):
             logger.warning("B12X PCIe all-reduce is unsupported on device %s.", device)
             return
+        if p2p_override_state() is False:
+            if self.rank == 0:
+                logger.warning(
+                    "The NVIDIA driver runs without the ForceP2P override. On "
+                    "GPUs behind CPU root ports the B12X PCIe all-reduce then "
+                    "stages through system memory and can be far slower than "
+                    "NCCL. Fix: %s in /etc/modprobe.d/nvidia-p2p-override.conf "
+                    "and reload the nvidia modules, or set "
+                    "VLLM_PCIE_ALLREDUCE_BACKEND to a non-PCIe backend.",
+                    P2P_OVERRIDE_REMEDY,
+                )
+            if require_p2p_override():
+                if self.rank == 0:
+                    logger.warning(
+                        "VLLM_PCIE_REQUIRE_P2P_OVERRIDE is set: the B12X PCIe "
+                        "all-reduce stays disabled and NCCL is used."
+                    )
+                return
 
         self.allreduce_max_bytes, self.fused_max_bytes, buffer_bytes = _oneshot_limits(
             self.world_size
